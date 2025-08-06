@@ -1,0 +1,206 @@
+---
+title: "Cyclistic_study"
+author: "Hasan Mustafa"
+date: "2025-08-06"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    theme: cerulean
+    df_print: tibble
+  word_document:
+    toc: true
+    toc_depth: '2'
+---
+
+# Cyclistic Bike-Share Case Study
+
+## Introduction
+
+The goal of this project is to analyze Cyclistic's historical bike-share data and identify differences in usage patterns between **casual riders** and **annual members**. This insight will help guide marketing strategies aimed at converting casual riders into members.
+
+## Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load required libraries
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(skimr)
+library(ggplot2)
+library(scales)
+
+# Set working directory
+setwd("C:/Users/hasan/OneDrive/Desktop/cycle_case study")
+
+# Load cleaned data
+bike_data <- readRDS("cleaned_data/bike_data.rds")
+```
+
+## CLEANING THE DATA
+
+### renaming, ride_length, filtering.
+```{r}
+bike_data <- clean_names(bike_data)
+glimpse(bike_data)
+skim(bike_data)
+bike_data <- bike_data %>%
+  mutate(
+    started_at = ymd_hms(started_at),
+    ended_at = ymd_hms(ended_at),
+    ride_length = as.numeric(difftime(ended_at, started_at, units = "mins")),
+    day_of_week = wday(started_at, label = TRUE),
+    month = month(started_at, label = TRUE),
+    hour = hour(started_at)
+  )
+```
+
+## remove rides <1 min or >1 day
+
+```{r}
+bike_data <- bike_data %>%
+  filter(ride_length > 1, ride_length < 1440)  
+```
+
+## Save Cleaned Data
+
+```{r}
+saveRDS(bike_data, "cleaned_data/bike_data.rds")
+
+```
+## Analysis
+
+## Structure of the Dataset
+
+We load the cleaned dataset and view its structure and sample rows to understand the contents and format.
+```{r}
+bike_data <- readRDS("cleaned_data/bike_data.rds")
+glimpse(bike_data)
+head(bike_data)
+```
+## Count of Rides by User Type
+
+This tells us how many rides were made by casual users versus members.
+
+
+```{r}
+bike_data %>%
+  count(member_casual)
+```
+## Ride Duration Summary
+
+We analyze how long rides typically last for each type of user — this helps us understand usage patterns and preferences.
+```{r}
+bike_data %>%
+  group_by(member_casual) %>%
+  summarise(
+    average_duration = mean(ride_length),
+    median_duration = median(ride_length),
+    max_duration = max(ride_length)
+  )
+```
+
+
+## Rides by Day of Week
+
+This shows us how riding behavior varies across the week for each user type.
+
+```{r}
+bike_data %>%
+  group_by(member_casual, day_of_week) %>%
+  summarise(num_rides = n(), .groups = "drop") %>%
+  arrange(member_casual, day_of_week)
+
+```
+
+## Visualize
+
+In this section, we create visualizations to compare ride behavior between **casual users** and **members**.
+
+## 1. Total Rides by User Type
+
+This bar chart shows the total number of rides taken by members vs. casual users. It gives a quick overview of who uses the service more.
+
+```{r}
+library(ggplot2)
+
+ggplot(bike_data, aes(x = member_casual)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Total Rides by User Type", x = "User Type", y = "Number of Rides")
+
+```
+
+## 2.Rides per Day of the Week by User Type
+
+This chart breaks down the number of rides per weekday for both user types. It helps us understand on which days each group prefers to ride.
+
+```{r}
+bike_data %>%
+  group_by(member_casual, day_of_week) %>%
+  summarise(num_rides = n(), .groups = "drop") %>%
+  ggplot(aes(x = day_of_week, y = num_rides, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  labs(title = "Rides per Day by User Type", x = "Day of the Week", y = "Number of Rides")
+
+```
+
+## 3.Average Ride Duration by User Type
+
+This bar chart compares the average ride duration between casual and member users.
+```{r}
+bike_data %>%
+  group_by(member_casual) %>%
+  summarise(avg_duration = mean(ride_length)) %>%
+  ggplot(aes(x = member_casual, y = avg_duration, fill = member_casual)) +
+  geom_col() +
+  labs(title = "Average Ride Duration by User Type", x = "User Type", y = "Average Duration (sec)")
+
+```
+
+
+## 4.Average Ride Duration by Day of Week
+
+This chart shows how the average duration of rides varies across the week for each user type. It may reveal patterns like longer weekend rides for casual users.
+```{r}
+bike_data %>%
+  group_by(member_casual, day_of_week) %>%
+  summarise(avg_duration = mean(ride_length), .groups = "drop") %>%
+  ggplot(aes(x = day_of_week, y = avg_duration, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  labs(title = "Avg. Ride Duration by Day of Week", x = "Day of the Week", y = "Avg. Duration (sec)")
+
+```
+
+## Summary of Findings
+
+Based on the analysis, we observed the following patterns:
+
+- **Casual users** tend to take longer rides than **annual members**, especially on weekends.
+- **Members** ride more frequently and consistently throughout the week.
+- **Casual users** ride more often on weekends, while **members** have higher usage during weekdays.
+- There are clear differences in behavior based on **day of the week** and **ride duration**.
+
+---
+
+## Business Recommendations
+
+To convert more casual riders into annual members, Cyclistic could consider:
+
+1. **Targeted Marketing Campaigns** on weekends when casual use is high.
+2. **Promotions/discounts** to encourage frequent riders to become members.
+3. **Feature improvements** (like app suggestions, ride history benefits) that cater to casual users.
+4. Partnering with event organizers on weekends to increase exposure.
+
+---
+
+## Next Steps
+
+- Analyze seasonal trends or weather impact on rides.
+- Incorporate location-based data (start/end station) for deeper route analysis.
+- Conduct user surveys to understand decision factors.
+
+---
+
